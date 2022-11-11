@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <direct.h>
 #include <vector>
+#include <map>
 #include <algorithm>
 
 using namespace std;
@@ -17,13 +18,11 @@ bool HasEnds(const string& fileName, const string& ending)
     return fileName.compare(fileName.length() - ending.length(), ending.length(), ending) == 0;
 }
 
-bool IsCodeFile(const string& fileName)
+bool IsCodeFile(const string& fileName, const map<string, string>& codeFilePostfix)
 {
-    string codeFilePostfix[] = {".cpp", ".h", ".java", ".py", ".kt", ".cs", ".js", ".css"};
-
-    for (string ending : codeFilePostfix)
+    for (const auto ending : codeFilePostfix)
     {
-        if (HasEnds(fileName, ending))
+        if (HasEnds(fileName, ending.first))
         {
             return true;
         }
@@ -68,36 +67,19 @@ string GetCodeFileName(const string& codeFilePath)
     return codeFileName;
 }
 
-string GetCodeLanguage(const string& fileName)
+string GetCodeLanguage(const string& fileName, const map<string, string>& codeFilePostfix)
 {
-    if (HasEnds(fileName, ".cpp") || HasEnds(fileName, ".h"))
+    for (const auto code : codeFilePostfix)
     {
-        return "cpp";
-    }
-    if (HasEnds(fileName, ".java") || HasEnds(fileName, ".kt"))
-    {
-        return "java";
-    }
-    if (HasEnds(fileName, ".py"))
-    {
-        return "python";
-    }
-    if (HasEnds(fileName, ".cs"))
-    {
-        return "csharp";
-    }
-    if (HasEnds(fileName, ".js"))
-    {
-        return "js";
-    }
-    if (HasEnds(fileName, ".css"))
-    {
-        return "css";
+        if (HasEnds(fileName, code.first))
+        {
+            return code.second;
+        }
     }
     return "NoN";
 }
 
-void WriteCodeToFile(const string& codeFilePath)
+void WriteCodeToFile(const string& codeFilePath, const map<string, string>& codeFilePostfix)
 {
     std::ifstream file(codeFilePath, std::ios_base::in);
     std::string codeFromFile{std::istreambuf_iterator<char>(file),
@@ -105,9 +87,9 @@ void WriteCodeToFile(const string& codeFilePath)
     file.close();
 
     string codeFileName = GetCodeFileName(codeFilePath);
-    string codeString = "\\subsubsection*{" + codeFileName +
-                        "}\n\\begin{minted}[breaklines, breakafter=d]{" +
-                        GetCodeLanguage(codeFileName) + "}\n" + codeFromFile + "\n\\end{minted}\n";
+    string codeString =
+        "\\subsubsection*{" + codeFileName + "}\n\\begin{minted}[breaklines, breakafter=d]{" +
+        GetCodeLanguage(codeFileName, codeFilePostfix) + "}\n" + codeFromFile + "\n\\end{minted}\n";
 
     ofstream fout("code.tex", ios_base::app);
     fout << codeString;
@@ -132,6 +114,12 @@ void SortFileNames(vector<string>* fileNames)
             {
                 if (HasEnds((*fileNames)[j], fileName))
                 {
+                    auto fileDublicate =
+                        std::find(sortedFileNames.begin(), sortedFileNames.end(), (*fileNames)[j]);
+                    if (fileDublicate != sortedFileNames.end())
+                    {
+                        sortedFileNames.erase(fileDublicate);
+                    }
                     sortedFileNames.push_back((*fileNames)[j]);
                     break;
                 }
@@ -139,7 +127,7 @@ void SortFileNames(vector<string>* fileNames)
             }
         }
         // Если вектор не содержит данного имени файла
-        if (std::find(sortedFileNames.begin(), sortedFileNames.end(), (*fileNames)[i]) !=
+        if (std::find(sortedFileNames.begin(), sortedFileNames.end(), (*fileNames)[i]) ==
             sortedFileNames.end())
         {
             sortedFileNames.push_back((*fileNames)[i]);
@@ -152,27 +140,46 @@ void SortFileNames(vector<string>* fileNames)
     copy(sortedFileNames.begin(), sortedFileNames.end(), back_inserter((*fileNames)));
 }
 
+void createCodeFileMap(map<string, string>* newMap)
+{
+    (*newMap)[".cpp"] = "cpp";
+    (*newMap)[".h"] = "cpp";
+    (*newMap)[".java"] = "java";
+    (*newMap)[".kt"] = "java";
+    (*newMap)[".py"] = "python";
+    (*newMap)[".cs"] = "csharp";
+    (*newMap)[".js"] = "js";
+    (*newMap)[".css"] = "css";
+}
+
 int main(int argc, char* argv[])
 {
     setlocale(LC_ALL, "rus");
-    string workDirectory = GetWorkDirectory();
-    vector<string> files;
-    bool isFirstFile = true;
-    GetFiles(&files, workDirectory);
-    SortFileNames(&files);
+    map<string, string> codeFilePostfix;
+    createCodeFileMap(&codeFilePostfix);
 
-    for (string file : files)
+    string workDirectory = GetWorkDirectory();
+    vector<string> allFiles;
+    vector<string> codeFiles;
+    GetFiles(&allFiles, workDirectory);
+
+    for (string file : allFiles)
     {
-        if (IsCodeFile(file))
+        if (IsCodeFile(file, codeFilePostfix))
         {
-            if (isFirstFile)
-            {
-                ofstream fout("code.tex");
-                fout << "";
-                fout.close();
-                isFirstFile = false;
-            }
-            WriteCodeToFile(file);
+            codeFiles.push_back(file);
+        }
+    }
+
+    if (codeFiles.size() > 0)
+    {
+        SortFileNames(&codeFiles);
+        ofstream fout("code.tex");
+        fout << "";
+        fout.close();
+        for (string file : codeFiles)
+        {
+            WriteCodeToFile(file, codeFilePostfix);
         }
     }
 
