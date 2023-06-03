@@ -88,7 +88,7 @@ void WriteCodeToFile(const string& codeFilePath, const map<string, string>& code
 
     string codeFileName = GetCodeFileName(codeFilePath);
     string codeString =
-        "\\subsubsection*{" + codeFileName + "}\n\\begin{minted}[fontsize=\tiny, breaklines, breakafter=d]{" +
+        "\\subsubsection*{" + codeFileName + "}\n\\begin{minted}[fontsize=\\tiny, breaklines, breakafter=d]{" +
         GetCodeLanguage(codeFileName, codeFilePostfix) + "}\n" + codeFromFile + "\n\\end{minted}\n";
 
     ofstream fout("code.tex", ios_base::app);
